@@ -139,6 +139,9 @@ def add_v_to_excel_newfile(excel_path,
         if isinstance(value, str) and value.startswith('matlab.double'):
             numeric_part = re.findall(r'\d+\.?\d*', value)[0]
             value = float(numeric_part)
+
+        print(type)
+        print(value)
         cell = ws.cell(row=idx, column=last_col+1, value=float(value))
         cell.number_format = sci_format
     
