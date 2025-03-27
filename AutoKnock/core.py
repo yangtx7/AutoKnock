@@ -11,7 +11,7 @@ from openpyxl.styles import numbers
 
 
 
-def full_pipeline(model_path, reaction_list_path,selected_rxn_list_matlab, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values, constr_opt_sense):
+def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1,constr_opt_values2, constr_opt_sense):
     # 启动 MATLAB 引擎
     eng = matlab.engine.start_matlab()
 
@@ -25,20 +25,26 @@ def full_pipeline(model_path, reaction_list_path,selected_rxn_list_matlab, targe
  
     v_values = FBA_compute(eng)
     
-    df_v=add_v_to_excel_newfile(model_path, 
+    df_v,df_v_path=add_v_to_excel_newfile(model_path, 
                           v_values, 
                           new_column_name='v_values',
                           suffix='v_values')
 
 
-    matlab_reaction_list=transfer_reaction_list(excel_file_path=reaction_list_path)
+    # matlab_reaction_list=transfer_reaction_list(excel_file_path=reaction_list_path)
     
     
 
     while True:
-        OptKnockSol=perform_optknock(model, matlab_reaction_list, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1,constr_opt_values2, constr_opt_sense)
+        OptKnockSol=perform_optknock(eng,df_v_path, reaction_list_path, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1,constr_opt_values2, constr_opt_sense)
+        print("--- 数据结构分析 ---")
+        print(f"变量: {OptKnockSol['rxnList']}")
 
-        add_optknock_results_to_excel(OptKnockSol,df_v)
+
+
+
+
+        add_optknock_results_to_excel(df_v_path, OptKnockSol,new_column_name='v_values',suffix='optknock')
         
            
         if check_termination_condition():
@@ -118,31 +124,47 @@ def add_v_to_excel_newfile(excel_path,
         os.remove(new_path)
         raise ValueError(f"数据行数不匹配（v值:{len(v_values)}，工作表:{data_row_count}）")
     
-    # 处理重复列名
+    insert_col = 1
+    # 遍历第一行的所有列（直到找到第一个空单元格或末尾）
+    while insert_col <= ws.max_column:
+        cell = ws.cell(row=1, column=insert_col)
+        if cell.value is None:
+            break
+        insert_col += 1
+    else:
+        insert_col = ws.max_column + 1  # 如果所有列都有内容，插入到末尾
+    # 处理重复列名（保持原有逻辑）
     headers = [cell.value for cell in ws[1]]
     new_col_name = new_column_name
     counter = 1
     while new_col_name in headers:
         new_col_name = f"{new_column_name}_{counter}"
         counter += 1
-    
-    # 定位最后一列
-    last_col = ws.max_column
-    
-    # 写入新列头
-    ws.cell(row=1, column=last_col+1, value=new_col_name)
+
+    # 写入新列头到第一个空白列
+    ws.cell(row=1, column=insert_col, value=new_col_name)
     
     # 写入数据并设置科学计数法格式
     sci_format = '0.00E+00'
     for idx, value in enumerate(v_values, start=2):
-        # 处理MATLAB字符串
-        if isinstance(value, str) and value.startswith('matlab.double'):
+        # 关键修改点：处理 MATLAB 数据类型
+        if isinstance(value, matlab.double):
+            # MATLAB 返回的数组，取第一个元素
+            value = value[0]  # 如果是多维数组需要递归处理
+            
+        # 兼容性处理：如果意外以字符串形式传递
+        elif isinstance(value, str) and value.startswith('matlab.double'):
+            # 从字符串中提取数值（备用方案）
             numeric_part = re.findall(r'\d+\.?\d*', value)[0]
             value = float(numeric_part)
-
-        print(type)
-        print(value)
-        cell = ws.cell(row=idx, column=last_col+1, value=float(value))
+            
+        # 强制类型转换确保安全
+        try:
+            cell_value = float(value)
+        except ValueError as e:
+            raise ValueError(f"无法转换值到浮点数: {value} (类型: {type(value)})") from e
+            
+        cell = ws.cell(row=idx, column=insert_col, value=cell_value)
         cell.number_format = sci_format
     
     # 保存并关闭
@@ -152,103 +174,48 @@ def add_v_to_excel_newfile(excel_path,
     # 返回结果
     df = pd.read_excel(new_path, sheet_name='Reaction List')
     print(f"新文件已保存至：{new_path}")
-    return  df
-
-# def add_v_values_to_excel(model_path,model, v_values):
-#     try:
-#         # 获取所有表名
-#         sheet_names = model.sheet_names
-#         # 获取 Reaction List 工作表的数据
-#         reaction_list_df = model.parse('Reaction List')
-
-#         # 将 v 值转换为合适的格式（假设 v_values 是一维数组）
-#         v_values_list = [val[0] for val in v_values]
-
-#         # 确保 v 值的长度与 Reaction List 表的行数一致
-#         if len(v_values_list) != len(reaction_list_df):
-#             raise ValueError("v 值的长度与 Reaction List 表的行数不一致。")
-
-#         # 添加 v 值作为新的一列
-#         reaction_list_df['v_values'] = v_values_list
-
-#         # 创建一个 Pandas ExcelWriter 对象，用于写入修改后的数据到 Excel 文件
-#         with pd.ExcelWriter(model_path, engine='openpyxl') as writer:
-#             # 遍历每个表名
-#             for sheet_name in sheet_names:
-#                 if sheet_name == 'Reaction List':
-#                     # 如果是 Reaction List 表，则写入修改后的数据
-#                     reaction_list_df.to_excel(writer, sheet_name=sheet_name, index=False)
-#                 else:
-#                     # 对于其他表，直接写入原始数据
-#                     df = model_path.parse(sheet_name)
-#                     df.to_excel(writer, sheet_name=sheet_name, index=False)
-#                     return df
-
-#         print(f"已将 v 值添加到 {model_path} 的 Reaction List 表的最后一列。")
-#     except Exception as e:
-#         print(f"处理 Excel 文件时出现错误: {e}")
+    return df,new_path
 
 
 
-
-
-
-def transfer_reaction_list(excel_file_path):
+def perform_optknock(eng, df_v_path,reaction_list_path, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1, constr_opt_values2, constr_opt_sense):
+    
     try:
-        # 读取 Excel 文件
-        df = pd.read_excel(excel_file_path)
-        # 假设 Excel 文件中只有一列，获取该列的数据
-        reaction_list = df.iloc[:, 0].tolist()
-
-        # 将 Python 列表转换为 MATLAB 元胞数组
-        matlab_reaction_list = matlab.cell([1, len(reaction_list)])
-        for i, reaction in enumerate(reaction_list):
-            matlab_reaction_list[0, i] = matlab.double([reaction])
-
-        # 在 MATLAB 工作区中创建 selectedRxnList 变量
-        print("已将 Excel 文件中的待选反应集导入到 MATLAB 工作区的 selectedRxnList 中。")
-        return matlab_reaction_list
         
-    except Exception as e:
-        print(f"处理 Excel 文件时出现错误: {e}")
+        df = pd.read_excel(reaction_list_path)
+        reaction_list = df.iloc[:, 0].tolist()  # 获取第一列数据
+    
+       
 
+            # 直接在 MATLAB 中创建元胞数组
 
+        
+        selected_rxn_str = "{" + ", ".join([f"'{rxn}'" for rxn in reaction_list]) + "}"
+        rxn_list_str = "{" + ", ".join([f"'{rxn}'" for rxn in constr_opt_rxn_list]) + "}"
+        eng.eval(f"selectedRxnList = {selected_rxn_str};", nargout=0)
+        
 
+        eng.eval(f"options.targetRxn='{target_rxn}'", nargout=0)
+        eng.eval(f"options.vmax={vmax}", nargout=0)
+        eng.eval(f"options.numDel={num_del}", nargout=0)
+        eng.eval(f"options.numDelSense='{num_del_sense}'", nargout=0)
+        eng.eval(f"constrOpt.rxnList={rxn_list_str}", nargout=0)
+        eng.eval(f"constrOpt.values=[{constr_opt_values1}*FBAsolution.f,{constr_opt_values2}]", nargout=0)
+        
+        eng.eval(f"constrOpt.sense='{constr_opt_sense}'", nargout=0)
+        eng.eval(f"OptKnockSol=OptKnock(model,selectedRxnList,options,constrOpt)", nargout=0)
 
-def perform_optknock(model, selected_rxn_list_matlab, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1,constr_opt_values2, constr_opt_sense):
-    # 启动 MATLAB 引擎
-    eng = matlab.engine.start_matlab()
+     
 
-    try:
+      
 
-
-        # 处理 constr_opt_rxn_list 为 MATLAB 元胞数组
-        constr_opt_rxn_list_matlab = eng.cell(1, len(constr_opt_rxn_list))
-        for i, rxn in enumerate(constr_opt_rxn_list):
-            constr_opt_rxn_list_matlab[0, i] = rxn
-
-        # 进行 FBA 计算
-        fbaWT = eng.optimizeCbModel(model)
-        constr_opt_values=[constr_opt_values1*fbaWT.f,constr_opt_values2]
-        constr_opt_values_mat = matlab.double(constr_opt_values)
-
-
-
-
-
-        # 设置 options 结构体
-        options = eng.struct('targetRxn', target_rxn, 'vmax', vmax, 'numDel', num_del, 'numDelSense', num_del_sense)
-
-        # 设置 constrOpt 结构体
-        constrOpt = eng.struct('rxnList', constr_opt_rxn_list_matlab, 'values', constr_opt_values_mat, 'sense', constr_opt_sense)
-
-        # 执行 OptKnock 计算
-        OptKnockSol = eng.OptKnock(model, selected_rxn_list_matlab, options, constrOpt)
-
+        # 从 MATLAB 工作区获取 OptKnockSol
+        OptKnockSol = eng.workspace['OptKnockSol']
         return OptKnockSol
 
     except Exception as e:
         print(f"执行 OptKnock 计算时出现错误: {e}")
+        raise  # 重新抛出异常以便调试
 
 
 def add_optknock_results_to_excel(OptKnockSol, df_v):
@@ -261,20 +228,20 @@ def add_optknock_results_to_excel(OptKnockSol, df_v):
         result_df = pd.DataFrame({rxn_list[i]: [fluxes[i]] for i in range(len(rxn_list))})
 
         # 读取 Excel 文件
-        excel_file = pd.ExcelFile(excel_file_path)
-        reaction_list_df = excel_file.parse('Reaction List')
+        
+        reaction_list_df = df_v.parse('Reaction List')
 
         # 将结果添加到 Reaction List 表的最后一列
         for col in result_df.columns:
             reaction_list_df[col] = result_df[col].values
 
-        # 保存修改后的 DataFrame 到 Excel 文件
-        with pd.ExcelWriter(excel_file_path, engine='openpyxl') as writer:
-            reaction_list_df.to_excel(writer, sheet_name='Reaction List', index=False)
+        # # 保存修改后的 DataFrame 到 Excel 文件
+        # with pd.ExcelWriter(excel_file_path, engine='openpyxl') as writer:
+        #     reaction_list_df.to_excel(writer, sheet_name='Reaction List', index=False)
 
-        print(f"已将 OptKnock 结果添加到 {excel_file_path} 的 Reaction List 表的最后一列。")
+        # print(f"已将 OptKnock 结果添加到 {excel_file_path} 的 Reaction List 表的最后一列。")
     except Exception as e:
-        print(f"处理 Excel 文件时出现错误: {e}")
+        print(f"处理 OptKnock 结果Excel 文件时出现错误: {e}")
 
 
 def add_fluxes(xlsx_filename, rxnList, fluxes):
