@@ -322,8 +322,8 @@ if __name__ == "__main__":
     constr_opt_values1=0.5
     constr_opt_values2=0.7
     constr_opt_sense='GE' 
-    model_path='C:/Users/Administrator/Desktop/model_input.xlsx'
-    reaction_list_path='C:/Users/Administrator/Desktop/selectedRxnList-172.xlsx'
+    model_path='data/model_input.xlsx'
+    reaction_list_path='data/selectedRxnList-172.xlsx'
 
    
     full_pipeline(model_path, reaction_list_path,target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1,constr_opt_values2, constr_opt_sense)
