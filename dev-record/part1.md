@@ -2,7 +2,7 @@
 > initCobraToolbox
 
 2.模型读入（.mat文件）[2:00-3:00]
-> model=readCBModel('yeast-GEM.mat')
+> model=readCbModel('C:/Users/Administrator/Desktop/副本Yeast8-OA.xlsx')
 
 3.格式转换（.mat文件->.excel文件）[3:00-4:00]
 > writeCBModel(model,'xlsx','yeast-GEM.xlsx)
