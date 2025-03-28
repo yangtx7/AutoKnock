@@ -20,7 +20,7 @@ def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num
     print("调用 MATLAB 版本号: ", eng.version())  # 获取 MATLAB 版本号
 
    # 读取文件
-    model= read_model(model_path,eng)
+    model_path= read_model(model_path,eng)
     
  
     v_values = FBA_compute(eng)
@@ -85,13 +85,17 @@ def read_model(model_path,eng):
     if model_path.endswith('.mat'):
         eng.eval(f"model = readcbModel('{model_path}')", nargout=0)
         print(f"已使用 readcbModel 读取 .mat 文件 {model_path}")
+        base = os.path.splitext(model_path)[0]
+        model_path= f"{base}.xlsx"
+        eng.eval(f"writeCBModel(model,'xlsx','{model_path})", nargout=0)
+        
+        return  model_path
+
     elif model_path.endswith('.xlsx'):
         eng.eval(f"model = xls2model('{model_path}')", nargout=0)
         print(f"已使用 xls2model 读取 .xlsx 文件 {model_path}")
-        # 读取 Excel 文件，指定 sheet_name 为 None 以读取所有表
-        excel_file = pd.ExcelFile(model_path)
         
-        return  excel_file
+        return  model_path
     else:
         print("不支持的文件类型，请提供 .mat 或 .xlsx 文件。")
 
