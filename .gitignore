@@ -1,4 +1,6 @@
 # Byte-compiled / optimized / DLL files
+data/model_inputv_valuesoptknock.xlsx
+data/model_inputv_values.xlsx
 cobratoolbox
 __pycache__/
 *.py[cod]

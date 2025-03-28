@@ -5,6 +5,7 @@
 Prerequsite:
 
 - Matlab (any version, with its python matlab.engine extension)
+- Gurobi solver (with its Matlab interface)
 
 Install AutoKnock package:
 
