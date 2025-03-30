@@ -2,7 +2,9 @@ import cobra
 import itertools
 import networkx as nx
 import pandas as pd
+
 from cobra.io import load_model,load_matlab_model
+
 model = load_matlab_model("./Yeast8-OA.mat") #导入模型
 
 # 读取两个currency metabolites的CSV文件

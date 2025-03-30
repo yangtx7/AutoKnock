@@ -45,7 +45,7 @@ def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num
     df = pd.read_excel(reaction_list_path)
     reaction_list = df.iloc[:, 0].tolist()  # Get the first column as the reaction list
     count = 0
-
+    consecutive_failures = [0]  # 使用列表保持状态，因为整数是不可变的
     while True:
         count += 1
         OptKnockSol = perform_optknock(reaction_list, eng, df_v_path, reaction_list_path, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1, constr_opt_values2, constr_opt_sense)
@@ -58,7 +58,8 @@ def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num
         print(f"Saved results after {count} iterations")  # Print iteration count
 
         # Check termination condition (e.g., stop after 9 iterations)
-        if check_termination_condition(count):
+        if check_termination_condition(wb,count,consecutive_failures,eng):
+
             break
 
     # Part 1 ends, part 2 begins (could include more operations like model editing, generating reports, etc.)
@@ -206,7 +207,7 @@ def add_optknock_results_to_excel(reaction_list, eng, wb, OptKnockSol):
     fluxes_values = eng.eval("OptKnockSol.fluxes", nargout=1)
     new_col_name = str(rxnList)
     print("rxnList:", rxnList)
-    print("fluxes_values:", fluxes_values)
+   
 
     # Update reaction list by removing optimized reactions
     for rxn in OptKnockSol['rxnList']:
@@ -254,11 +255,71 @@ def add_fluxes(xlsx_filename, rxnList, fluxes):
 
 
 # TODO: Dummy function for checking termination condition
-def check_termination_condition(count):
-    """
-    Checks whether the termination condition for the optimization loop is met.
-    """
-    return count >= 9  # Terminate after 9 iterations
+def check_termination_condition(wb, count, consecutive_failures,eng):
+    try:
+        ws = wb['Reaction List']
+    except KeyError:
+        print("错误：未找到 'Reaction List' 工作表")
+        return True  # 终止循环
+    
+    # 查找 v_values 列
+    v_col = None
+    for col in range(1, ws.max_column + 1):
+        if ws.cell(1, col).value == 'v_values':
+            v_col = col
+            break
+    if v_col is None:
+        print("错误：未找到 'v_values' 列")
+        return True  # 终止循环
+    
+    last_row = ws.max_row
+    if last_row < 2:  # 至少需要1行数据
+        return False
+    
+    # 获取最后一列和 v_values 列的值
+    rxnList = eng.eval("OptKnockSol.rxnList", nargout=1)
+   
+    last_col_name = str(rxnList)
+    last_col = None
+    for col in range(1, ws.max_column + 1):
+        if ws.cell(1, col).value == last_col_name:
+            last_col = col
+            break
+    if last_col is None:
+        print("错误：未找到 'optknock' 列")
+        return True  # 终止循环
+
+    last_val = ws.cell(last_row, last_col).value
+    v_val = ws.cell(last_row, v_col).value
+    # last_val = float(last_val)
+    print('!!!!!!!!!!')
+    print(v_val)
+    print(last_val)
+    # 验证数值类型
+    if not isinstance(last_val, (int, float)) or not isinstance(v_val, (int, float)):
+        print("警告：最后一列或 v_values 列包含非数值数据")
+        return False
+    
+    # 更新连续失败计数器
+    if last_val < v_val:
+        consecutive_failures[0] += 1
+    else:
+        consecutive_failures[0] = 0  # 重置计数器
+    
+    # 终止条件：连续两次失败 或 超过20次循环
+    if consecutive_failures[0] >= 2 or count >= 20:
+        if count >= 20:
+            print('未找到解')
+
+
+
+        if consecutive_failures[0] >= 2:
+            # 删除最后两列
+            for col in range(last_col - 1, last_col + 1):
+                for row in range(1, last_row + 1):
+                    ws.cell(row=row, column=col, value=None)
+        return True
+    return False
 
 
 # Example usage
@@ -271,7 +332,7 @@ if __name__ == "__main__":
     constr_opt_values1 = 0.5
     constr_opt_values2 = 0.7
     constr_opt_sense = 'GE' 
-    model_path = 'data/model_input.xlsx'
+    model_path = 'data/test1.xlsx'
     reaction_list_path = 'data/selectedRxnList-172.xlsx'
 
     full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num_del_sense, constr_opt_rxn_list, constr_opt_values1, constr_opt_values2, constr_opt_sense)
