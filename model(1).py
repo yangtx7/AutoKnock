@@ -6,39 +6,6 @@ from cobra.io import load_model,load_matlab_model
 from scipy.io import savemat
 import matlab.engine
 
-# def xlsx_to_mat(xlsx_file_path, mat_file_path):
-#     try:
-        
-#         eng = matlab.engine.start_matlab()
-
-#         # Initialize COBRA Toolbox in MATLAB
-#         eng.eval("initCobraToolbox", nargout=0)
-#         print("MATLAB Version: ", eng.version())  # Print MATLAB version
-
-
-#         eng.eval(f"model = readCbModel({xlsx_file_path})", nargout=0)
-#         eng.eval(f"save({mat_file_path}, 'model')", nargout=0)
-
-        
-
-
-      
-        
-#         print(f"成功将 {xlsx_file_path} 转换为 {mat_file_path}")
-#     except FileNotFoundError:
-#         print(f"错误：未找到 {xlsx_file_path} 文件。")
-#     except Exception as e:
-#         print(f"错误：发生了未知错误：{e}")
-
-
-# xlsx_file = "C:\\Users\\Administrator\\AutoKnock\\data\\test1v_valuesoptknock.xlsx"
-# mat_file = "C:\\Users\\Administrator\\AutoKnock\\data\\test1v_valuesoptknock.mat"
-# xlsx_to_mat(xlsx_file, mat_file)
-
-
-
-
-
 
 
 # 读取两个currency metabolites的CSV文件
@@ -145,61 +112,172 @@ def get_metpair(rea, pi_pairs1, h_pairs1, pi_pairs2, h_pairs2, nh4_pairs, other_
         sub_pro.append((s, p))
     return sub_pro
 
+# # 读取模型
+# from cobra.io import load_model,load_matlab_model
+# model = load_matlab_model("data\Yeast8-OA.mat")
+# # 读取各反应的代谢通量值(经由OptKnock计算后得到的fluxes值)
+# flux_value_file = 'data/test1v_valuesoptknock.xlsx'
+# flux_values_df = pd.read_excel(flux_value_file)
+# # 根据列名称'Abbreviation'获取反应ID
+# reaction_ids = flux_values_df['Abbreviation']
+# # 根据列名称'。。。'获取通量值列
+# flux_values_series = flux_values_df.iloc[:, 10]  #对应的通量值所在的列名
+# # 将反应ID和对应的通量值存入字典
+# flux_values = dict(zip(reaction_ids, flux_values_series))
+# # 设置通量值的阈值
+# flux_threshold = 1e-10
+# # 遍历模型中的反应，并更新通量值
+# for rea in model.reactions:
+#     # 根据反应ID获取通量值，如果不存在则默认为0
+#     flux_value = flux_values.get(rea.id, 0)
+#     # 如果通量值的绝对值小于阈值，则将其设为0
+#     if abs(flux_value) < flux_threshold:
+#         flux_value = 0
+#     # 将通量值赋给模型中的反应对象
+#     rea.flux_value = flux_value
+# # 创建有向图
+# G = nx.MultiDiGraph()
+# # 遍历模型中的反应，添加到图中
+# for rea in model.reactions:
+#     if not rea.boundary:
+#         sub_pro = get_metpair(rea, pi_pairs1, h_pairs1, pi_pairs2, h_pairs2, nh4_pairs, other_pairs, currency_mets)
+#         # 检查反应的通量值，仅添加不为0的反应
+#         flux_value = rea.flux_value
+#         if flux_value != 0:
+#             # 对于正向通量，添加从反应物到产物的边
+#             if flux_value > 0:
+#                 for sp in sub_pro:
+#                     G.add_edge(sp[0], sp[1], label=rea.id, weight=1)  # 反应物指向产物,如果是用实际通量值为权重值weight=abs(flux_value)
+#             # 对于负向通量且反应可逆，添加从产物到反应物的边
+#             elif rea.reversibility:
+#                 for sp in sub_pro:
+#                     G.add_edge(sp[1], sp[0], label=rea.id, weight=1)  # 产物指向反应物
+# #将图写入CSV文件
+# result_save_path = './'
+# edgelist = []
+# for u, v, d in G.edges(data=True):
+#     edgelist.append([u, v, d['label'], d['weight']])
+# edgelist_df = pd.DataFrame(edgelist, columns=['source', 'target', 'reaction', 'weight'])
+# edgelist_df.to_csv(result_save_path + '-Δr_0172_edgelist.csv', index=False)
+
+# import matplotlib.pyplot as plt
+# # 绘制图形
+# def draw_graph(G):
+#     nx.draw(G, with_labels=True, arrows=True)
+#     plt.show()
+# # 调用绘制函数
+# draw_graph(G)
+
+
+
+import plotly.graph_objects as go
+import networkx as nx
+import pandas as pd
+from cobra.io import load_matlab_model
+
 # 读取模型
-from cobra.io import load_model,load_matlab_model
-model = load_matlab_model("data\Yeast8-OA.mat")
-# 读取各反应的代谢通量值(经由OptKnock计算后得到的fluxes值)
+model = load_matlab_model("data/Yeast8-OA.mat")
+
+# 读取各反应的代谢通量值
 flux_value_file = 'data/test1v_valuesoptknock.xlsx'
 flux_values_df = pd.read_excel(flux_value_file)
+
 # 根据列名称'Abbreviation'获取反应ID
 reaction_ids = flux_values_df['Abbreviation']
-# 根据列名称'。。。'获取通量值列
-flux_values_series = flux_values_df.iloc[:, 10]  #对应的通量值所在的列名
-# 将反应ID和对应的通量值存入字典
+flux_values_series = flux_values_df.iloc[:, 10]  # 对应的通量值所在的列名
 flux_values = dict(zip(reaction_ids, flux_values_series))
+
 # 设置通量值的阈值
 flux_threshold = 1e-10
+
 # 遍历模型中的反应，并更新通量值
 for rea in model.reactions:
-    # 根据反应ID获取通量值，如果不存在则默认为0
     flux_value = flux_values.get(rea.id, 0)
-    # 如果通量值的绝对值小于阈值，则将其设为0
     if abs(flux_value) < flux_threshold:
         flux_value = 0
-    # 将通量值赋给模型中的反应对象
     rea.flux_value = flux_value
+
 # 创建有向图
 G = nx.MultiDiGraph()
+
 # 遍历模型中的反应，添加到图中
 for rea in model.reactions:
     if not rea.boundary:
+        # 假设 get_metpair 函数已定义
         sub_pro = get_metpair(rea, pi_pairs1, h_pairs1, pi_pairs2, h_pairs2, nh4_pairs, other_pairs, currency_mets)
-        # 检查反应的通量值，仅添加不为0的反应
         flux_value = rea.flux_value
         if flux_value != 0:
-            # 对于正向通量，添加从反应物到产物的边
             if flux_value > 0:
                 for sp in sub_pro:
-                    G.add_edge(sp[0], sp[1], label=rea.id, weight=1)  # 反应物指向产物,如果是用实际通量值为权重值weight=abs(flux_value)
-            # 对于负向通量且反应可逆，添加从产物到反应物的边
+                    G.add_edge(sp[0], sp[1], label=rea.id, weight=abs(flux_value))  # 使用通量值作为权重
             elif rea.reversibility:
                 for sp in sub_pro:
-                    G.add_edge(sp[1], sp[0], label=rea.id, weight=1)  # 产物指向反应物
-#将图写入CSV文件
-result_save_path = './'
-edgelist = []
-for u, v, d in G.edges(data=True):
-    edgelist.append([u, v, d['label'], d['weight']])
-edgelist_df = pd.DataFrame(edgelist, columns=['source', 'target', 'reaction', 'weight'])
-edgelist_df.to_csv(result_save_path + '-Δr_0172_edgelist.csv', index=False)
+                    G.add_edge(sp[1], sp[0], label=rea.id, weight=abs(flux_value))
 
-import matplotlib.pyplot as plt
-# 绘制图形
-def draw_graph(G):
-    nx.draw(G, with_labels=True, arrows=True)
-    plt.show()
+# 使用 Plotly 绘制拓扑图
+def draw_plotly_graph(G):
+    pos = nx.spring_layout(G)  # 计算节点位置
+    edge_x = []
+    edge_y = []
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.append(x0)
+        edge_x.append(x1)
+        edge_x.append(None)  # None用于断开线条
+        edge_y.append(y0)
+        edge_y.append(y1)
+        edge_y.append(None)
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=0.5, color='#888'),
+        hoverinfo='none',
+        mode='lines')
+
+    node_x = []
+    node_y = []
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers',
+        hoverinfo='text',
+        marker=dict(
+            showscale=True,
+            colorscale='YlGnBu',
+            size=10,
+            color=[],
+            line_width=2))
+
+    node_adjacencies = []
+    node_text = []
+    for node in G.nodes():
+        node_adjacencies.append(len(list(G.neighbors(node))))
+        node_text.append(f'{node}<br># of connections: {len(list(G.neighbors(node)))}')
+
+    node_trace.marker.color = node_adjacencies
+    node_trace.text = node_text
+
+    fig = go.Figure(data=[edge_trace, node_trace],
+                     layout=go.Layout(
+                        title='<br>Network Graph made with Python',
+                        
+                        showlegend=False,
+                        hovermode='closest',
+                        margin=dict(b=0,l=0,r=0,t=40),
+                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                     )
+
+    fig.write_image(path)
+
+
 # 调用绘制函数
-draw_graph(G)
+draw_plotly_graph(G)
 
 import networkx as nx
 import pandas as pd
@@ -209,8 +287,10 @@ target1 = 's_0450[c]'  #biomass节点
 target2 = 's_4422[e]'  #product节点
 # 读取源节点的csv文件，假设csv文件中有名为 'Abbreviation(in GEM)' 的列
 source_file = 'data\TF-based Biosensors.xlsx'
-sources_df = pd.read_excel(source_file)
-
+# 使用 pd.ExcelFile 读取 Excel 文件，得到 ExcelFile 对象
+excel_file = pd.ExcelFile(source_file)
+# 调用 parse 方法获取指定工作表的数据，并设置表头行为 1
+sources_df = excel_file.parse('Sheet1', header=1)
 # 结果存储列表
 results = []
 # 对每个源节点计算到两个目标节点的最短路径长度，以及比值
