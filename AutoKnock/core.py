@@ -75,7 +75,8 @@ def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num
         if check_termination_condition(wb,count,consecutive_failures,eng):
 
             break
-
+    
+    print('start part 2')
     # Part 1 ends, part 2 begins (could include more operations like model editing, generating reports, etc.)
     pi_pairs1,pi_pairs2,h_pairs1,h_pairs2,nh4_pairs,other_pairs,currency_mets=Handling_Currency_Metabolites(pairs_of_currency_metabolites_file,special_currency_metabolites_file)
    
@@ -107,6 +108,7 @@ def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num
             rea.flux_value = flux_value
 
         # 创建有向图
+        print('创建有向图')
         G = nx.MultiDiGraph()
 
         # 遍历模型中的反应，添加到图中
@@ -126,6 +128,7 @@ def full_pipeline(model_path, reaction_list_path, target_rxn, vmax, num_del, num
         # 使用 Plotly 绘制拓扑图
         path=os.path.join('\\AutoKnock\\picture', f"{col_name}_graph.png")
         # 调用绘制函数
+        print('调用绘制函数')
         draw_plotly_graph(G,path)
         target1 = 's_0450[c]'  #biomass节点
         target2 = 's_4422[e]'  #product节点
@@ -393,6 +396,8 @@ def check_termination_condition(wb, count, consecutive_failures,eng):
     rxnList = eng.eval("OptKnockSol.rxnList", nargout=1)
    
     last_col_name = str(rxnList)
+    if last_col_name.startswith("['") and last_col_name.endswith("']"):
+            last_col_name = last_col_name[2:-2]
     last_col = None
     for col in range(1, ws.max_column + 1):
         if ws.cell(1, col).value == last_col_name:
@@ -597,6 +602,7 @@ def draw_plotly_graph(G,path):
                         )
 
         fig.write_image(path)
+        print(f'图片已保存到{path}')
 
 
 
