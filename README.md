@@ -1,25 +1,32 @@
-# Introduction
+<h1 align="left"> <a href="">AutoKnock</a></h1>
 
-# Install 
+TODO: write introduction of AutoKnock package.
+
+# 😮 Highlights
+
+TODO: prepare key feature introduction
+
+# ⚙️ Installation
 
 Prerequsite:
 
 - Matlab (any version, with its python matlab.engine extension)
-- Gurobi solver (with its Matlab interface)
+- Gurobi solver (academic licence required, with its Matlab interface)
 
 Install AutoKnock package:
 
 (standard install)
-```
+```sh
 pip install . 
 ```
 
 (install for local development)
-```
+```sh
 pip install -e .
 ```
 
-# Quick Start
+# 🗝️ Quick Start
 
 
-# Citation
+
+# ✏️ Citation
