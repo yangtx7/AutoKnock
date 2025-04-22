@@ -2,6 +2,8 @@
 
 TODO: write introduction of AutoKnock package.
 
+Detailed Documentation: https://autoknock.readthedocs.io/en/latest/
+
 # 😮 Highlights
 
 TODO: prepare key feature introduction
