@@ -11,6 +11,7 @@ TODO: prepare key feature introduction
 Prerequsite:
 
 - Matlab (any version, with its python matlab.engine extension)
+- opencobra
 - Gurobi solver (academic licence required, with its Matlab interface)
 
 Install AutoKnock package:
