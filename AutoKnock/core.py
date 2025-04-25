@@ -113,6 +113,9 @@ def full_pipeline(args):
         G = nx.MultiDiGraph()
 
         # 遍历模型中的反应，添加到图中
+        os.makedirs('outputs', exist_ok=True)
+        os.makedirs('outputs/pic', exist_ok=True)
+        os.makedirs('outputs/table', exist_ok=True)
         for rea in model.reactions:
             if not rea.boundary:
                 # 假设 get_metpair 函数已定义
@@ -127,14 +130,14 @@ def full_pipeline(args):
                             G.add_edge(sp[1], sp[0], label=rea.id, weight=abs(flux_value))
 
         # 使用 Plotly 绘制拓扑图
-        path=os.path.join('\\AutoKnock\\picture', f"{col_name}_graph.png")
+        path=os.path.join('outputs', 'pic', f"{col_name}_graph.png")
         # 调用绘制函数
         print('调用绘制函数')
         draw_plotly_graph(G,path)
         target1 = 's_0450[c]'  #biomass节点
         target2 = 's_4422[e]'  #product节点
         # 读取源节点的csv文件，假设csv文件中有名为 'Abbreviation(in GEM)' 的列
-        source_file = 'data\TF-based Biosensors.xlsx'
+        source_file = os.path.join("data", "TF-based Biosensors.xlsx")
         # 使用 pd.ExcelFile 读取 Excel 文件，得到 ExcelFile 对象
         excel_file = pd.ExcelFile(source_file)
         # 调用 parse 方法获取指定工作表的数据，并设置表头行为 1
@@ -174,42 +177,13 @@ def full_pipeline(args):
         # 按照比值从小到大排序结果DataFrame
         sorted_results_df = results_df.sort_values(by='ratio')
         # 将排序后的结果写入xlsx文件
-        output_file = f"{col_name}_results.xlsx"
+        output_file = os.path.join("outputs", "table", f"{col_name}_results.xlsx")
         sorted_results_df.to_excel(output_file, index=False)
         print(f"计算结果已写入 {output_file}，并按比值从小到大排序。")
 
 
 
     # Additional operations can be implemented here, e.g., removing CM, drawing figures, generating reports.
-
-
-
-
-
-
-
-
-
-
-
-
-# def add_fluxes(xlsx_filename, rxnList, fluxes):
-#     """
-#     Adds fluxes
-#     """
-#     assert xlsx_filename.endswith('.xlsx')
-#     pass
-
-
-
-
-
-
-
-
-
-
-
 
 # Example usage
 if __name__ == "__main__":
